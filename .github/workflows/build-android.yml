@@ -5,16 +5,13 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      run: git clone https://github.com/${{ github.repository }} .
 
     - name: Install NDK and CMake
       run: |
