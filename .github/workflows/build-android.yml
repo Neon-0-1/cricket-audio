@@ -18,8 +18,13 @@ jobs:
         yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
           "ndk;25.2.9519653"
 
-    - name: Show cktool Makefile
-      run: cat src/cktool/Makefile
+    - name: Show Makefiles
+      run: |
+        echo "=== src/cktool/Makefile ==="
+        cat src/cktool/Makefile
+        echo ""
+        echo "=== build/Makefile-common (first 100 lines) ==="
+        head -100 build/Makefile-common
 
     - name: Build cktool for ARM64
       run: |
@@ -29,9 +34,10 @@ jobs:
         export CXX=$TOOLCHAIN/bin/aarch64-linux-android26-clang++
         export AR=$TOOLCHAIN/bin/llvm-ar
         export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
-        export STRIP=$TOOLCHAIN/bin/llvm-strip
+        export CFLAGS="-I$NDK/sources/android/cpufeatures"
+        export CXXFLAGS="-I$NDK/sources/android/cpufeatures"
         cd src/cktool
-        make CC=$CC CXX=$CXX AR=$AR RANLIB=$RANLIB
+        make PLATFORM=android ARCH=arm64 CC=$CC CXX=$CXX AR=$AR RANLIB=$RANLIB CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS"
 
     - name: Find built binary
       run: find . -name "cktool" -not -path "./.git/*" | sort
@@ -40,5 +46,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: cktool-android-arm64
-        path: src/cktool/cktool
-        
+        path: |
+          src/cktool/cktool
+          **/cktool
+          
