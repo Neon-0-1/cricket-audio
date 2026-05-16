@@ -13,6 +13,15 @@ jobs:
     - name: Checkout code
       run: git clone https://github.com/${{ github.repository }} .
 
+    - name: Show repo structure
+      run: |
+        echo "=== Root files ==="
+        ls -la
+        echo "=== Finding CMakeLists.txt ==="
+        find . -name "CMakeLists.txt" | sort
+        echo "=== Finding cktool source ==="
+        find . -name "cktool*" | sort
+
     - name: Install NDK and CMake
       run: |
         yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
@@ -35,3 +44,4 @@ jobs:
       with:
         name: cktool-android-arm64
         path: build-android/cktool
+
