@@ -31,7 +31,7 @@ jobs:
         cmake --build . --target cktool
 
     - name: Upload cktool binary
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: cktool-android-arm64
         path: build-android/cktool
