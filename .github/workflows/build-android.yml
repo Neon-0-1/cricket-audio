@@ -13,21 +13,32 @@ jobs:
     - name: Checkout code
       run: git clone https://github.com/${{ github.repository }} .
 
-    - name: Discover build system
+    - name: Install NDK
       run: |
-        echo "=== Root files ==="
-        ls -la
-        echo ""
-        echo "=== All build files ==="
-        find . -name "CMakeLists.txt" \
-               -o -name "Makefile" \
-               -o -name "*.mk" \
-               -o -name "build.py" \
-               -o -name "*.gradle" \
-               -o -name "Android.mk" \
-               -o -name "configure" \
-               -o -name "*.sh" | grep -v ".git" | sort
-        echo ""
-        echo "=== README ==="
-        cat README.md 2>/dev/null || cat README 2>/dev/null || echo "No README found"
+        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
+          "ndk;25.2.9519653"
+
+    - name: Show cktool Makefile
+      run: cat src/cktool/Makefile
+
+    - name: Build cktool for ARM64
+      run: |
+        export NDK=$ANDROID_SDK_ROOT/ndk/25.2.9519653
+        export TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
+        export CC=$TOOLCHAIN/bin/aarch64-linux-android26-clang
+        export CXX=$TOOLCHAIN/bin/aarch64-linux-android26-clang++
+        export AR=$TOOLCHAIN/bin/llvm-ar
+        export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
+        export STRIP=$TOOLCHAIN/bin/llvm-strip
+        cd src/cktool
+        make CC=$CC CXX=$CXX AR=$AR RANLIB=$RANLIB
+
+    - name: Find built binary
+      run: find . -name "cktool" -not -path "./.git/*" | sort
+
+    - name: Upload cktool binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: cktool-android-arm64
+        path: src/cktool/cktool
         
