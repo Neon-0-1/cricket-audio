@@ -13,35 +13,21 @@ jobs:
     - name: Checkout code
       run: git clone https://github.com/${{ github.repository }} .
 
-    - name: Show repo structure
+    - name: Discover build system
       run: |
         echo "=== Root files ==="
         ls -la
-        echo "=== Finding CMakeLists.txt ==="
-        find . -name "CMakeLists.txt" | sort
-        echo "=== Finding cktool source ==="
-        find . -name "cktool*" | sort
-
-    - name: Install NDK and CMake
-      run: |
-        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
-          "ndk;25.2.9519653" \
-          "cmake;3.22.1"
-
-    - name: Build cktool for ARM64
-      run: |
-        export NDK=$ANDROID_SDK_ROOT/ndk/25.2.9519653
-        mkdir build-android && cd build-android
-        $ANDROID_SDK_ROOT/cmake/3.22.1/bin/cmake .. \
-          -DCMAKE_TOOLCHAIN_FILE=$NDK/build/cmake/android.toolchain.cmake \
-          -DANDROID_ABI=arm64-v8a \
-          -DANDROID_PLATFORM=android-26 \
-          -DCMAKE_BUILD_TYPE=Release
-        $ANDROID_SDK_ROOT/cmake/3.22.1/bin/cmake --build . --target cktool
-
-    - name: Upload cktool binary
-      uses: actions/upload-artifact@v4
-      with:
-        name: cktool-android-arm64
-        path: build-android/cktool
-
+        echo ""
+        echo "=== All build files ==="
+        find . -name "CMakeLists.txt" \
+               -o -name "Makefile" \
+               -o -name "*.mk" \
+               -o -name "build.py" \
+               -o -name "*.gradle" \
+               -o -name "Android.mk" \
+               -o -name "configure" \
+               -o -name "*.sh" | grep -v ".git" | sort
+        echo ""
+        echo "=== README ==="
+        cat README.md 2>/dev/null || cat README 2>/dev/null || echo "No README found"
+        
