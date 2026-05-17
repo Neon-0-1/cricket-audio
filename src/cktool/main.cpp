@@ -1101,7 +1101,7 @@ int main (int argc, char* argv[])
     CK_PRINT("\n");
     CK_PRINT("Cricket Audio tool (version %d.%d.%d%s%s)\n", Version::k_major, Version::k_minor, Version::k_build, (strlen(Version::k_label) ? " " : ""), Version::k_label);
 
-    CkConfig config;
+    CkConfig config((JNIEnv*)nullptr, (jobject)nullptr);
     config.logMask = kCkLog_All;
     config.logFunc = logFunc;
 
