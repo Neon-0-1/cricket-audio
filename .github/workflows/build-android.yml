@@ -34,11 +34,11 @@ jobs:
         content = open('build/Makefile-common').read()
         old = 'CPP_LINK_FLAGS := -L\$(LIB_DIR)'
         new = '''CPP_LINK_FLAGS := -L\$(LIB_DIR)
-ifeq (\$(CK_TARGET_OS),android)
-  CPP_LINK_FLAGS += --sysroot=\$(CK_ANDROID_NDK_DIR)/sysroot
-  CPP_LINK_FLAGS += -L\$(CK_ANDROID_NDK_DIR)/sysroot/usr/lib/\$(GCC_PREFIX)/\$(CK_API_TARGET)
-  CPP_LINK_FLAGS += -L\$(CK_ANDROID_NDK_DIR)/toolchains/llvm/prebuilt/linux-x86_64/lib64
-endif'''
+        ifeq (\$(CK_TARGET_OS),android)
+          CPP_LINK_FLAGS += --sysroot=\$(CK_ANDROID_NDK_DIR)/sysroot
+          CPP_LINK_FLAGS += -L\$(CK_ANDROID_NDK_DIR)/sysroot/usr/lib/\$(GCC_PREFIX)/\$(CK_API_TARGET)
+          CPP_LINK_FLAGS += -L\$(CK_ANDROID_NDK_DIR)/toolchains/llvm/prebuilt/linux-x86_64/lib64
+        endif'''
         open('build/Makefile-common', 'w').write(content.replace(old, new))
         print('Makefile-common patched successfully')
         "
