@@ -1,4 +1,4 @@
-    name: Build cktool for Android ARM64
+name: Build cktool for Android ARM64
 
 on:
   push:
