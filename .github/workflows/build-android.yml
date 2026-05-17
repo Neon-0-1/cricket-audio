@@ -20,51 +20,29 @@ jobs:
 
     - name: Patch Makefiles and source for Android
       run: |
-        # Patch cktool Makefile
         sed -i 's/CK_TARGET_OS := linux/CK_TARGET_OS := android/' src/cktool/Makefile
         sed -i 's/CK_LINK_LIBS := ck tinyxml asound pthread/CK_LINK_LIBS := ck tinyxml/' src/cktool/Makefile
-
-        # Remove conflicting system STL includes
         sed -i 's|-isystem$(CK_ANDROID_NDK_DIR)/sources/cxx-stl/system/include||g' build/Makefile-common
         sed -i 's|-I$(CK_ANDROID_NDK_DIR)/sources/cxx-stl/system/include||g' build/Makefile-common
-
-        # Remove -gcc-toolchain flag
-        sed -i 's|-gcc-toolchain $(GCC_DIR)||g' build/Makefile-common
-
-        # Patch main.cpp: CkConfig needs JNI args on Android
+        sed -i 's/-gcc-toolchain $(GCC_DIR)//g' build/Makefile-common
         sed -i 's/CkConfig config;/CkConfig config((JNIEnv*)nullptr, (jobject)nullptr);/' src/cktool/main.cpp
-
-        # Write Python patch script to a file (avoids indentation issues in YAML)
-        cat > /tmp/patch.py << 'PYEOF'
-        content = open('build/Makefile-common').read()
-        
-        old_cc = 'ifeq ($(CK_TARGET_OS),android)\n  AR := $(GCC_DIR)/bin/$(GCC_PREFIX)-ar \n  CC := $(LLVM_DIR)/bin/clang\n  CXX := $(LLVM_DIR)/bin/clang++'
-        new_cc = 'ifeq ($(CK_TARGET_OS),android)\n  AR := $(LLVM_DIR)/bin/llvm-ar\n  CC := $(LLVM_DIR)/bin/$(GCC_PREFIX)$(CK_API_TARGET)-clang\n  CXX := $(LLVM_DIR)/bin/$(GCC_PREFIX)$(CK_API_TARGET)-clang++'
-        
-        if old_cc in content:
-            content = content.replace(old_cc, new_cc)
-            print('Patched CC/CXX successfully')
-        else:
-            print('WARNING: pattern not found, showing relevant section:')
-            for i, line in enumerate(content.split('\n')):
-                if 'AR :=' in line or 'CC :=' in line or 'CXX :=' in line:
-                    print(f'Line {i}: {repr(line)}')
-        
-        open('build/Makefile-common', 'w').write(content)
-        PYEOF
-            python3 /tmp/patch.py
 
     - name: Build cktool for Android ARM64
       run: |
-        export CK_ANDROID_NDK_DIR=$ANDROID_SDK_ROOT/ndk/21.4.7075529
-        export CK_ANDROID_SDK_DIR=$ANDROID_SDK_ROOT
-        export CPU_FEATURES_INC="-isystem$CK_ANDROID_NDK_DIR/sources/android/cpufeatures"
+        export NDK=$ANDROID_SDK_ROOT/ndk/21.4.7075529
+        export LLVM=$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin
+        export CPU_INC="-isystem$NDK/sources/android/cpufeatures"
+
         cd src/cktool
         make CK_ARCH=arm64-v8a CK_CONFIG=release \
-          CK_ANDROID_NDK_DIR=$CK_ANDROID_NDK_DIR \
-          CK_ANDROID_SDK_DIR=$CK_ANDROID_SDK_DIR \
-          CK_C_FLAGS="$CPU_FEATURES_INC" \
-          CK_CPP_FLAGS="$CPU_FEATURES_INC"
+          CK_ANDROID_NDK_DIR=$NDK \
+          CK_ANDROID_SDK_DIR=$ANDROID_SDK_ROOT \
+          CC=$LLVM/aarch64-linux-android21-clang \
+          CXX=$LLVM/aarch64-linux-android21-clang++ \
+          AR=$LLVM/llvm-ar \
+          RANLIB=$LLVM/llvm-ranlib \
+          CK_C_FLAGS="$CPU_INC" \
+          CK_CPP_FLAGS="$CPU_INC"
 
     - name: Find built binary
       run: find . -name "cktool" -not -path "./.git/*" | sort
