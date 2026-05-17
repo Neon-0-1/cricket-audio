@@ -31,27 +31,28 @@ jobs:
         # Remove -gcc-toolchain flag
         sed -i 's|-gcc-toolchain $(GCC_DIR)||g' build/Makefile-common
 
-        # Patch Makefile-common using Python
-        python3 << 'PYEOF'
-        content = open('build/Makefile-common').read()
-
-        # Use versioned clang wrappers (they know sysroot, crt, libs automatically)
-        old_cc = '''ifeq ($(CK_TARGET_OS),android)
-          AR := $(GCC_DIR)/bin/$(GCC_PREFIX)-ar 
-          CC := $(LLVM_DIR)/bin/clang
-          CXX := $(LLVM_DIR)/bin/clang++'''
-                new_cc = '''ifeq ($(CK_TARGET_OS),android)
-          AR := $(LLVM_DIR)/bin/llvm-ar
-          CC := $(LLVM_DIR)/bin/$(GCC_PREFIX)$(CK_API_TARGET)-clang
-          CXX := $(LLVM_DIR)/bin/$(GCC_PREFIX)$(CK_API_TARGET)-clang++'''
-        content = content.replace(old_cc, new_cc)
-
-        open('build/Makefile-common', 'w').write(content)
-        print('Patched CC/CXX to versioned clang wrappers')
-        PYEOF
-
         # Patch main.cpp: CkConfig needs JNI args on Android
         sed -i 's/CkConfig config;/CkConfig config((JNIEnv*)nullptr, (jobject)nullptr);/' src/cktool/main.cpp
+
+        # Write Python patch script to a file (avoids indentation issues in YAML)
+        cat > /tmp/patch.py << 'PYEOF'
+        content = open('build/Makefile-common').read()
+        
+        old_cc = 'ifeq ($(CK_TARGET_OS),android)\n  AR := $(GCC_DIR)/bin/$(GCC_PREFIX)-ar \n  CC := $(LLVM_DIR)/bin/clang\n  CXX := $(LLVM_DIR)/bin/clang++'
+        new_cc = 'ifeq ($(CK_TARGET_OS),android)\n  AR := $(LLVM_DIR)/bin/llvm-ar\n  CC := $(LLVM_DIR)/bin/$(GCC_PREFIX)$(CK_API_TARGET)-clang\n  CXX := $(LLVM_DIR)/bin/$(GCC_PREFIX)$(CK_API_TARGET)-clang++'
+        
+        if old_cc in content:
+            content = content.replace(old_cc, new_cc)
+            print('Patched CC/CXX successfully')
+        else:
+            print('WARNING: pattern not found, showing relevant section:')
+            for i, line in enumerate(content.split('\n')):
+                if 'AR :=' in line or 'CC :=' in line or 'CXX :=' in line:
+                    print(f'Line {i}: {repr(line)}')
+        
+        open('build/Makefile-common', 'w').write(content)
+        PYEOF
+            python3 /tmp/patch.py
 
     - name: Build cktool for Android ARM64
       run: |
