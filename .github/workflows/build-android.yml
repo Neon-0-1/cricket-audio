@@ -20,27 +20,32 @@ jobs:
 
     - name: Patch Makefiles and source for Android
       run: |
+        NDK=$ANDROID_SDK_ROOT/ndk/21.4.7075529
+
         # Patch cktool Makefile
         sed -i 's/CK_TARGET_OS := linux/CK_TARGET_OS := android/' src/cktool/Makefile
-        # Remove asound (Linux only) and pthread (built into Android libc)
         sed -i 's/CK_LINK_LIBS := ck tinyxml asound pthread/CK_LINK_LIBS := ck tinyxml/' src/cktool/Makefile
 
         # Remove conflicting system STL includes
         sed -i 's|-isystem$(CK_ANDROID_NDK_DIR)/sources/cxx-stl/system/include||g' build/Makefile-common
         sed -i 's|-I$(CK_ANDROID_NDK_DIR)/sources/cxx-stl/system/include||g' build/Makefile-common
 
-        # Add Android sysroot to linker flags so it can find crtbegin, crtend, libc++
+        # Remove -gcc-toolchain flag (forces old GCC linker, breaks NDK r21)
+        sed -i 's|-gcc-toolchain $(GCC_DIR)||g' build/Makefile-common
+
+        # Patch linker flags: use lld + correct sysroot paths
         python3 -c "
         content = open('build/Makefile-common').read()
         old = 'CPP_LINK_FLAGS := -L\$(LIB_DIR)'
         new = '''CPP_LINK_FLAGS := -L\$(LIB_DIR)
         ifeq (\$(CK_TARGET_OS),android)
+          CPP_LINK_FLAGS += -fuse-ld=lld
           CPP_LINK_FLAGS += --sysroot=\$(CK_ANDROID_NDK_DIR)/sysroot
           CPP_LINK_FLAGS += -L\$(CK_ANDROID_NDK_DIR)/sysroot/usr/lib/\$(GCC_PREFIX)/\$(CK_API_TARGET)
-          CPP_LINK_FLAGS += -L\$(CK_ANDROID_NDK_DIR)/toolchains/llvm/prebuilt/linux-x86_64/lib64
+          CPP_LINK_FLAGS += -L\$(CK_ANDROID_NDK_DIR)/sysroot/usr/lib/\$(GCC_PREFIX)
         endif'''
         open('build/Makefile-common', 'w').write(content.replace(old, new))
-        print('Makefile-common patched successfully')
+        print('Patched CPP_LINK_FLAGS successfully')
         "
 
         # Patch main.cpp: CkConfig needs JNI args on Android
