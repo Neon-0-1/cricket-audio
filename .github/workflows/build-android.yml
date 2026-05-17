@@ -13,31 +13,28 @@ jobs:
     - name: Checkout code
       run: git clone https://github.com/${{ github.repository }} .
 
-    - name: Install NDK
+    - name: Install NDK r21 (last version with GCC toolchains)
       run: |
         yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
-          "ndk;25.2.9519653"
+          "ndk;21.4.7075529"
 
-    - name: Show Makefiles
+    - name: Patch cktool Makefile for Android
       run: |
-        echo "=== src/cktool/Makefile ==="
+        # Change target OS from linux to android
+        sed -i 's/CK_TARGET_OS := linux/CK_TARGET_OS := android/' src/cktool/Makefile
+        # Remove asound (Linux-only audio lib, not needed on Android)
+        sed -i 's/CK_LINK_LIBS := ck tinyxml asound pthread/CK_LINK_LIBS := ck tinyxml pthread/' src/cktool/Makefile
+        echo "=== Patched Makefile ==="
         cat src/cktool/Makefile
-        echo ""
-        echo "=== build/Makefile-common (first 100 lines) ==="
-        head -100 build/Makefile-common
 
-    - name: Build cktool for ARM64
+    - name: Build cktool for Android ARM64
       run: |
-        export NDK=$ANDROID_SDK_ROOT/ndk/25.2.9519653
-        export TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
-        export CC=$TOOLCHAIN/bin/aarch64-linux-android26-clang
-        export CXX=$TOOLCHAIN/bin/aarch64-linux-android26-clang++
-        export AR=$TOOLCHAIN/bin/llvm-ar
-        export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
-        export CFLAGS="-I$NDK/sources/android/cpufeatures"
-        export CXXFLAGS="-I$NDK/sources/android/cpufeatures"
+        export CK_ANDROID_NDK_DIR=$ANDROID_SDK_ROOT/ndk/21.4.7075529
+        export CK_ANDROID_SDK_DIR=$ANDROID_SDK_ROOT
         cd src/cktool
-        make PLATFORM=android ARCH=arm64 CC=$CC CXX=$CXX AR=$AR RANLIB=$RANLIB CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS"
+        make CK_ARCH=arm64-v8a CK_CONFIG=release \
+          CK_ANDROID_NDK_DIR=$CK_ANDROID_NDK_DIR \
+          CK_ANDROID_SDK_DIR=$CK_ANDROID_SDK_DIR
 
     - name: Find built binary
       run: find . -name "cktool" -not -path "./.git/*" | sort
@@ -46,7 +43,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: cktool-android-arm64
-        path: |
-          src/cktool/cktool
-          **/cktool
-          
+        path: bin/android/arm64-v8a/release/cktool
+        
