@@ -20,8 +20,6 @@ jobs:
 
     - name: Patch Makefiles and source for Android
       run: |
-        NDK=$ANDROID_SDK_ROOT/ndk/21.4.7075529
-
         # Patch cktool Makefile
         sed -i 's/CK_TARGET_OS := linux/CK_TARGET_OS := android/' src/cktool/Makefile
         sed -i 's/CK_LINK_LIBS := ck tinyxml asound pthread/CK_LINK_LIBS := ck tinyxml/' src/cktool/Makefile
@@ -30,23 +28,27 @@ jobs:
         sed -i 's|-isystem$(CK_ANDROID_NDK_DIR)/sources/cxx-stl/system/include||g' build/Makefile-common
         sed -i 's|-I$(CK_ANDROID_NDK_DIR)/sources/cxx-stl/system/include||g' build/Makefile-common
 
-        # Remove -gcc-toolchain flag (forces old GCC linker, breaks NDK r21)
+        # Remove -gcc-toolchain flag
         sed -i 's|-gcc-toolchain $(GCC_DIR)||g' build/Makefile-common
 
-        # Patch linker flags: use lld + correct sysroot paths
-        python3 -c "
+        # Patch Makefile-common using Python
+        python3 << 'PYEOF'
         content = open('build/Makefile-common').read()
-        old = 'CPP_LINK_FLAGS := -L\$(LIB_DIR)'
-        new = '''CPP_LINK_FLAGS := -L\$(LIB_DIR)
-        ifeq (\$(CK_TARGET_OS),android)
-          CPP_LINK_FLAGS += -fuse-ld=lld
-          CPP_LINK_FLAGS += --sysroot=\$(CK_ANDROID_NDK_DIR)/sysroot
-          CPP_LINK_FLAGS += -L\$(CK_ANDROID_NDK_DIR)/sysroot/usr/lib/\$(GCC_PREFIX)/\$(CK_API_TARGET)
-          CPP_LINK_FLAGS += -L\$(CK_ANDROID_NDK_DIR)/sysroot/usr/lib/\$(GCC_PREFIX)
-        endif'''
-        open('build/Makefile-common', 'w').write(content.replace(old, new))
-        print('Patched CPP_LINK_FLAGS successfully')
-        "
+
+        # Use versioned clang wrappers (they know sysroot, crt, libs automatically)
+        old_cc = '''ifeq ($(CK_TARGET_OS),android)
+          AR := $(GCC_DIR)/bin/$(GCC_PREFIX)-ar 
+          CC := $(LLVM_DIR)/bin/clang
+          CXX := $(LLVM_DIR)/bin/clang++'''
+                new_cc = '''ifeq ($(CK_TARGET_OS),android)
+          AR := $(LLVM_DIR)/bin/llvm-ar
+          CC := $(LLVM_DIR)/bin/$(GCC_PREFIX)$(CK_API_TARGET)-clang
+          CXX := $(LLVM_DIR)/bin/$(GCC_PREFIX)$(CK_API_TARGET)-clang++'''
+        content = content.replace(old_cc, new_cc)
+
+        open('build/Makefile-common', 'w').write(content)
+        print('Patched CC/CXX to versioned clang wrappers')
+        PYEOF
 
         # Patch main.cpp: CkConfig needs JNI args on Android
         sed -i 's/CkConfig config;/CkConfig config((JNIEnv*)nullptr, (jobject)nullptr);/' src/cktool/main.cpp
