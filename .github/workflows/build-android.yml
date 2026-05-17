@@ -1,4 +1,4 @@
-name: Build cktool for Android ARM64
+    name: Build cktool for Android ARM64
 
 on:
   push:
@@ -13,28 +13,27 @@ jobs:
     - name: Checkout code
       run: git clone https://github.com/${{ github.repository }} .
 
-    - name: Install NDK r21 (last version with GCC toolchains)
+    - name: Install NDK r21
       run: |
         yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
           "ndk;21.4.7075529"
 
     - name: Patch cktool Makefile for Android
       run: |
-        # Change target OS from linux to android
         sed -i 's/CK_TARGET_OS := linux/CK_TARGET_OS := android/' src/cktool/Makefile
-        # Remove asound (Linux-only audio lib, not needed on Android)
         sed -i 's/CK_LINK_LIBS := ck tinyxml asound pthread/CK_LINK_LIBS := ck tinyxml pthread/' src/cktool/Makefile
-        echo "=== Patched Makefile ==="
-        cat src/cktool/Makefile
 
     - name: Build cktool for Android ARM64
       run: |
         export CK_ANDROID_NDK_DIR=$ANDROID_SDK_ROOT/ndk/21.4.7075529
         export CK_ANDROID_SDK_DIR=$ANDROID_SDK_ROOT
+        export CPU_FEATURES_INC="-isystem$CK_ANDROID_NDK_DIR/sources/android/cpufeatures"
         cd src/cktool
         make CK_ARCH=arm64-v8a CK_CONFIG=release \
           CK_ANDROID_NDK_DIR=$CK_ANDROID_NDK_DIR \
-          CK_ANDROID_SDK_DIR=$CK_ANDROID_SDK_DIR
+          CK_ANDROID_SDK_DIR=$CK_ANDROID_SDK_DIR \
+          CK_C_FLAGS="$CPU_FEATURES_INC" \
+          CK_CPP_FLAGS="$CPU_FEATURES_INC"
 
     - name: Find built binary
       run: find . -name "cktool" -not -path "./.git/*" | sort
