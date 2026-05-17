@@ -18,10 +18,19 @@ jobs:
         yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
           "ndk;21.4.7075529"
 
-    - name: Patch cktool Makefile for Android
+    - name: Patch Makefiles for Android
       run: |
+        # Patch cktool Makefile
         sed -i 's/CK_TARGET_OS := linux/CK_TARGET_OS := android/' src/cktool/Makefile
         sed -i 's/CK_LINK_LIBS := ck tinyxml asound pthread/CK_LINK_LIBS := ck tinyxml pthread/' src/cktool/Makefile
+
+        # Patch Makefile-common: remove conflicting system STL includes
+        # NDK r21 clang already has libc++ built in — adding system STL causes conflicts
+        sed -i 's|-isystem$(CK_ANDROID_NDK_DIR)/sources/cxx-stl/system/include||g' build/Makefile-common
+        sed -i 's|-I$(CK_ANDROID_NDK_DIR)/sources/cxx-stl/system/include||g' build/Makefile-common
+
+        echo "=== Patched Makefile-common STL lines ==="
+        grep -n "cxx-stl" build/Makefile-common || echo "All system STL lines removed successfully"
 
     - name: Build cktool for Android ARM64
       run: |
